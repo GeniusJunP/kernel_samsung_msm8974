@@ -74,7 +74,13 @@ extern int led_torch_en;
 bool is_torch_enabled;
 
 extern struct class *camera_class; /*sys/class/camera*/
+#if defined(CONFIG_LEDS_MAX77804K)
+/* leds-max77804k.c defines the same variable. Older toolchains merged both
+ * tentative definitions into one common symbol (-fcommon); share it explicitly. */
+extern struct device *flash_dev;
+#else
 struct device *flash_dev;
+#endif
 
 /* KTD2692 : command time delay(us) */
 #define T_DS		15	//	12
