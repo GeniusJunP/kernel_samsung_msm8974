@@ -471,20 +471,26 @@ static int max77804k_led_probe(struct platform_device *pdev)
 	}
 	/* print_all_reg_value(max77804k->i2c); */
 	if (!IS_ERR(camera_class)) {
-	    flash_dev = device_create(camera_class, NULL, 0, led_datas[1], "flash");
-	    if (flash_dev < 0)
-		pr_err("Failed to create device(flash)!\n");
-
-	    if (device_create_file(flash_dev, &dev_attr_rear_flash) < 0) {
-		pr_err("failed to create device file, %s\n",
-		       dev_attr_rear_flash.attr.name);
-	    }
+	    /* flash_dev may be shared with the camera flash driver (e.g. the
+	     * KTD2692 flash of camera_ll), which then already owns
+	     * /sys/class/camera/flash; keep its device in that case. */
+	    struct device *dev = device_create(camera_class, NULL, 0,
+					       led_datas[1], "flash");
+	    if (IS_ERR(dev)) {
+		pr_err("Failed to create device(flash): %ld\n", PTR_ERR(dev));
+	    } else {
+		flash_dev = dev;
+		if (device_create_file(flash_dev, &dev_attr_rear_flash) < 0) {
+		    pr_err("failed to create device file, %s\n",
+			   dev_attr_rear_flash.attr.name);
+		}
 #ifdef CONFIG_LEDS_SEPERATE_MOVIE_FLASH
-	    if (device_create_file(flash_dev, &dev_attr_movie_brightness) < 0) {
+		if (device_create_file(flash_dev, &dev_attr_movie_brightness) < 0) {
 		    pr_err("failed to create device file, %s\n",
 			   dev_attr_movie_brightness.attr.name);
-	    }
+		}
 #endif
+	    }
 	} else
 	    pr_err("Failed to create device(flash) because of nothing camera class!\n");
 
