@@ -272,7 +272,10 @@ enum msm_vfe_reg_cfg_type {
 struct msm_vfe_cfg_cmd2 {
 	uint16_t num_cfg;
 	uint16_t cmd_len;
-#if (defined(CONFIG_MSMB_CAMERA_MM) || defined(CONFIG_SEC_LT03_PROJECT)) && !defined(CONFIG_SEC_S_PROJECT)
+/* The chagall camera daemon passes frame_id as well (struct size 16, which
+ * VIDIOC_MSM_VFE_REG_CFG encodes), although the board uses camera_ll. */
+#if (defined(CONFIG_MSMB_CAMERA_MM) || defined(CONFIG_SEC_LT03_PROJECT) \
+	|| defined(CONFIG_MACH_CHAGALL)) && !defined(CONFIG_SEC_S_PROJECT)
 	uint32_t frame_id;
 #endif
 	void __user *cfg_data;

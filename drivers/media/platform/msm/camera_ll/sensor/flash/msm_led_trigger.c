@@ -273,10 +273,16 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		return rc;
 	}
 #endif
+#if !(defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO)\
+	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE)\
+	|| defined(CONFIG_MACH_LT03_LTE) || defined(CONFIG_MACH_CHAGALL))
+	/* Boards with the KTD2692 flash IC drive it through GPIOs and register
+	 * no LED triggers (no qcom,flash-source in the device tree). */
 	if (!fctrl->led_trigger[0]) {
 		pr_err("failed\n");
 		return -EINVAL;
 	}
+#endif
 #if defined(CONFIG_LEDS_MAX77803)
 	switch (cfg->cfgtype) {
 	case MSM_CAMERA_LED_OFF:
