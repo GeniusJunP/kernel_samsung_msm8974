@@ -199,6 +199,10 @@ enum msm_camera_vreg_name_t {
 	CAM_VIO,
 	CAM_VAF,
 	CAM_VANA,
+#if defined(CONFIG_CAMERA_SEPARATE_VT_REGULATOR)
+	VT_CAM_VDIG,
+	VT_CAM_VANA,
+#endif
 	CAM_VREG_MAX,
 };
 

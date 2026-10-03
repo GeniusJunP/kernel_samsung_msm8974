@@ -151,6 +151,15 @@ config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	  apps to render overlaid video using Video4Linux2
 	  APIs, by using /dev/videoX device
 
+config CAMERA_SEPARATE_VT_REGULATOR
+	bool "Separate regulators for the front (VT) camera"
+	depends on MSMB_CAMERA
+	default n
+	---help---
+	  Adds the VT_CAM_VDIG and VT_CAM_VANA regulator types for boards whose
+	  front camera has dedicated supplies. The sensor libraries of such
+	  boards refer to these types by value in their power sequences.
+
 config MSMB_JPEG
 	tristate "Qualcomm MSM Jpeg Encoder Engine support"
 	depends on MSMB_CAMERA && (ARCH_MSM8974 || ARCH_MSM8226)
