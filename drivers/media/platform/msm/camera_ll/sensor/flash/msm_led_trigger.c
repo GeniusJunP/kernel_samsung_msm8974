@@ -15,6 +15,21 @@
 
 #include <linux/module.h>
 
+/* Boards that drive the KTD2692 flash IC through a one-wire GPIO protocol.
+ * The KDDI Chagall (SCT21) has no KTD2692: like klte, its rear flash is the
+ * MAX77804K flash LED switched by the torch_en and flash_en GPIOs. Driving
+ * the KTD2692 protocol on that board leaves torch_en high and the LED lit. */
+#if defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO)\
+	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE)\
+	|| defined(CONFIG_MACH_LT03_LTE)\
+	|| (defined(CONFIG_MACH_CHAGALL) && !defined(CONFIG_MACH_CHAGALL_KDI))
+#define MSM_LED_KTD2692
+#elif defined(CONFIG_LEDS_MAX77804K)
+#define MSM_LED_MAX77804K
+#include <linux/gpio.h>
+#include <linux/leds-max77804k.h>
+#endif
+
 #if defined(CONFIG_LEDS_MAX77803)
 #include <linux/gpio.h>
 #endif
@@ -22,9 +37,7 @@
 #include <linux/gpio.h>
 #endif
 // Implementation KTD2692 flashIC
-#if defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO)\
-	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE)\
-	|| defined(CONFIG_MACH_LT03_LTE) || defined(CONFIG_MACH_CHAGALL)
+#if defined(MSM_LED_KTD2692)
 
 
 #include <linux/gpio.h>
@@ -64,10 +77,12 @@ extern int led_torch_en;
 extern int led_flash_en;
 extern int led_torch_en;
 #endif
+#if defined(MSM_LED_MAX77804K)
+extern int led_flash_en;
+extern int led_torch_en;
+#endif
 // Implementation KTD2692 flashIC
-#if defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO) \
-	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE) \
-	|| defined(CONFIG_MACH_LT03_LTE) || defined(CONFIG_MACH_CHAGALL)
+#if defined(MSM_LED_KTD2692)
 extern unsigned int system_rev;
 extern int led_flash_en;
 extern int led_torch_en;
@@ -261,23 +276,21 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	void *data)
 {
 	int rc = 0;
-#if defined(CONFIG_LEDS_MAX77803) || defined(CONFIG_LEDS_MAX77888)
+#if defined(CONFIG_LEDS_MAX77803) || defined(CONFIG_LEDS_MAX77888)\
+	|| defined(MSM_LED_MAX77804K)
 	int ret;
 #endif
 	struct msm_camera_led_cfg_t *cfg = (struct msm_camera_led_cfg_t *)data;
 	CDBG("called led_state %d\n", cfg->cfgtype);
-#if defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO)\
-	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE)\
-	|| defined(CONFIG_MACH_LT03_LTE) || defined(CONFIG_MACH_CHAGALL)
+#if defined(MSM_LED_KTD2692)
 	if (is_torch_enabled == true) {
 		return rc;
 	}
 #endif
-#if !(defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO)\
-	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE)\
-	|| defined(CONFIG_MACH_LT03_LTE) || defined(CONFIG_MACH_CHAGALL))
-	/* Boards with the KTD2692 flash IC drive it through GPIOs and register
-	 * no LED triggers (no qcom,flash-source in the device tree). */
+#if !(defined(MSM_LED_KTD2692) || defined(MSM_LED_MAX77804K))
+	/* Boards with the KTD2692 flash IC or the MAX77804K flash LED drive it
+	 * through GPIOs and register no LED triggers (no qcom,flash-source in
+	 * the device tree). */
 	if (!fctrl->led_trigger[0]) {
 		pr_err("failed\n");
 		return -EINVAL;
@@ -402,9 +415,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		break;
 	}
 // Implementation KTD2692 flashIC
-#elif defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO)\
-	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE)\
-	|| defined(CONFIG_MACH_LT03_LTE) || defined(CONFIG_MACH_CHAGALL)
+#elif defined(MSM_LED_KTD2692)
 	switch (cfg->cfgtype) {
 #if defined(CONFIG_MACH_LT03EUR) || defined(CONFIG_MACH_LT03SKT)\
 	|| defined(CONFIG_MACH_LT03KTT)	|| defined(CONFIG_MACH_LT03LGT)\
@@ -486,6 +497,44 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		rc = -EFAULT;
 		break;
 #endif
+	}
+#elif defined(MSM_LED_MAX77804K)
+	switch (cfg->cfgtype) {
+	case MSM_CAMERA_LED_OFF:
+		max77804k_led_en(0, 0);
+		max77804k_led_en(0, 1);
+		break;
+
+	case MSM_CAMERA_LED_LOW:
+		max77804k_led_en(1, 0);
+		break;
+
+	case MSM_CAMERA_LED_HIGH:
+		max77804k_led_en(1, 1);
+		break;
+
+	case MSM_CAMERA_LED_INIT:
+		break;
+	case MSM_CAMERA_LED_RELEASE:
+		ret = gpio_request(led_flash_en, "max77804k_flash_en");
+		if (ret)
+			pr_err("can't get max77804k_flash_en");
+		else {
+			gpio_direction_output(led_flash_en, 0);
+			gpio_free(led_flash_en);
+		}
+		ret = gpio_request(led_torch_en, "max77804k_torch_en");
+		if (ret)
+			pr_err("can't get max77804k_torch_en");
+		else {
+			gpio_direction_output(led_torch_en, 0);
+			gpio_free(led_torch_en);
+		}
+		break;
+
+	default:
+		rc = -EFAULT;
+		break;
 	}
 #else
 	switch (cfg->cfgtype) {
@@ -598,9 +647,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 	}
 	rc = msm_led_flash_create_v4lsubdev(pdev, &fctrl);
 // Implementation KTD2692 flashIC
-#if defined(CONFIG_MACH_VIENNA_LTE) || defined(CONFIG_MACH_PICASSO)\
-	|| defined(CONFIG_MACH_MONDRIAN) || defined(CONFIG_MACH_V2_LTE)\
-	|| defined(CONFIG_MACH_LT03_LTE) || defined(CONFIG_MACH_CHAGALL)
+#if defined(MSM_LED_KTD2692)
 	if (!IS_ERR(camera_class)) {
 		flash_dev = device_create(camera_class, NULL, 0, NULL, "flash");
 		if (flash_dev < 0)
